@@ -135,33 +135,47 @@ const retrieveUserService = (request) => {
 
 const updateUserService = async (request) => {
   const id = request.originalUrl.slice(7);
-  const update = request.body;
+  const updateData = request.body;
   const user = users[request.user.userIndex];
+  const userUpdate = users.find((user) => user.uuid === id);
+  const updateKeys = Object.keys(updateData);
 
-  if (id.length < 1 || user.uuid !== id) {
+  if (id.length < 1) {
     return [404, { message: "User not found" }];
   }
 
-  for (const propertyUpdate in update) {
-    for (const propertyUser in user) {
-      if (propertyUpdate === "isAdm" && user[propertyUser] === false) {
-        return [403, { message: "Missing admin permissions" }];
-      }
-
-      if (propertyUpdate === "password") {
-        user[propertyUser] = await hash(update[propertyUpdate], 10);
-      }
-
-      if (propertyUpdate === propertyUser) {
-        user[propertyUser] = update[propertyUpdate];
-      }
-    }
+  if (updateKeys.includes("isAdm")) {
+    return [403, { message: "Can't updating administration permission" }];
   }
 
-  user.updatedOn = new Date();
-  const { uuid, name, email, password, isAdm, createdOn, updateOn } = user;
+  if (user.isAdm) {
+    const userReturn = {
+      ...userUpdate,
+      ...updateData,
+      password: updateKeys.includes("password")
+        ? await hash(updateData.password, 10)
+        : userUpdate.password,
+      updatedOn: new Date(),
+    };
+    const { password, ...user } = userReturn;
+    return [200, user];
+  }
 
-  return [200, { uuid, name, email, isAdm, createdOn, updateOn }];
+  if (user.uuid !== userUpdate.uuid) {
+    return [403, { message: "Missing admin permissions" }];
+  }
+
+  const userReturn = {
+    ...userUpdate,
+    ...updateData,
+    password: updateKeys.includes("password")
+      ? await hash(updateData.password, 10)
+      : userUpdate.password,
+    updatedOn: new Date(),
+  };
+
+  const { password, ...returnUser } = userReturn;
+  return [200, returnUser];
 };
 
 const deleteUserService = (request) => {
